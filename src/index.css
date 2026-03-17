@@ -45,14 +45,17 @@
     --sidebar-border: 220 13% 85%;
     --sidebar-ring: 224 64% 33%;
 
-    /* Custom brand tokens */
+    /* Brand tokens */
     --brand: 224 64% 33%;
     --brand-light: 224 60% 50%;
     --brand-dark: 224 70% 20%;
     --brand-glow: 224 80% 60%;
-    --surface-brand: 224 64% 33%;
     --surface-dark: 222 47% 8%;
     --surface-dark-foreground: 220 20% 95%;
+
+    /* New premium tokens */
+    --navy: 224 50% 12%;
+    --ice: 220 30% 96%;
   }
 }
 
@@ -89,11 +92,6 @@
     color: hsl(var(--muted-foreground));
   }
 
-  .text-label-wide {
-    @apply text-[10px] uppercase tracking-[0.5em] font-medium;
-    color: hsl(var(--muted-foreground));
-  }
-
   .surface-brand {
     background: hsl(var(--brand));
     color: white;
@@ -101,6 +99,11 @@
 
   .surface-dark {
     background: hsl(var(--surface-dark));
+    color: hsl(var(--surface-dark-foreground));
+  }
+
+  .surface-navy {
+    background: hsl(var(--navy));
     color: hsl(var(--surface-dark-foreground));
   }
 
@@ -126,6 +129,25 @@
     filter: brightness(0.85) contrast(1.05);
   }
 
+  .perspective-container {
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  .card-3d {
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    transform-style: preserve-3d;
+  }
+
+  .card-3d:hover {
+    transform: rotateY(-4deg) rotateX(3deg) translateZ(20px);
+  }
+
+  .reveal-mask {
+    clip-path: inset(0 100% 0 0);
+    animation: revealRight 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
   .accent-hover {
     @apply transition-colors duration-300;
   }
@@ -138,4 +160,15 @@
   .ease-expo {
     transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   }
+}
+
+@keyframes revealRight {
+  to {
+    clip-path: inset(0 0% 0 0);
+  }
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
 }
