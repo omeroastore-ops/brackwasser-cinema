@@ -6,55 +6,53 @@
 
 @layer base {
   :root {
-    --background: 35 30% 95%;
-    --foreground: 25 20% 12%;
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
 
-    --card: 35 25% 90%;
-    --card-foreground: 25 20% 12%;
+    --card: 220 15% 94%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 35 25% 90%;
-    --popover-foreground: 25 20% 12%;
+    --popover: 220 15% 94%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 25 20% 12%;
-    --primary-foreground: 35 30% 95%;
+    --primary: 224 64% 33%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 33 20% 85%;
-    --secondary-foreground: 25 20% 12%;
+    --secondary: 220 15% 90%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 33 15% 80%;
-    --muted-foreground: 25 10% 45%;
+    --muted: 220 10% 85%;
+    --muted-foreground: 220 10% 40%;
 
-    --accent: 36 55% 50%;
-    --accent-foreground: 25 20% 8%;
+    --accent: 224 64% 33%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 33 15% 78%;
-    --input: 33 15% 78%;
-    --ring: 36 55% 50%;
+    --border: 220 13% 85%;
+    --input: 220 13% 85%;
+    --ring: 224 64% 33%;
 
     --radius: 0px;
 
-    --sidebar-background: 35 30% 95%;
-    --sidebar-foreground: 25 20% 12%;
-    --sidebar-primary: 25 20% 12%;
-    --sidebar-primary-foreground: 35 30% 95%;
-    --sidebar-accent: 33 20% 85%;
-    --sidebar-accent-foreground: 25 20% 12%;
-    --sidebar-border: 33 15% 78%;
-    --sidebar-ring: 36 55% 50%;
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 224 64% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 90%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 85%;
+    --sidebar-ring: 224 64% 33%;
 
-    /* Custom tokens */
-    --surface-warm: 33 25% 88%;
-    --surface-dark: 25 25% 10%;
-    --surface-dark-foreground: 35 30% 90%;
-    --gold: 40 65% 55%;
-    --gold-glow: 38 80% 65%;
-    --cream: 38 35% 92%;
-    --espresso: 20 30% 18%;
-    --espresso-foreground: 35 30% 90%;
-    --caramel: 30 45% 40%;
+    /* Custom brand tokens */
+    --brand: 224 64% 33%;
+    --brand-light: 224 60% 50%;
+    --brand-dark: 224 70% 20%;
+    --brand-glow: 224 80% 60%;
+    --surface-brand: 224 64% 33%;
+    --surface-dark: 222 47% 8%;
+    --surface-dark-foreground: 220 20% 95%;
   }
 }
 
@@ -70,8 +68,8 @@
   }
 
   ::selection {
-    background: hsl(36 55% 50% / 0.3);
-    color: hsl(25 20% 12%);
+    background: hsl(224 64% 33% / 0.3);
+    color: hsl(0 0% 100%);
   }
 }
 
@@ -96,26 +94,23 @@
     color: hsl(var(--muted-foreground));
   }
 
-  .surface-warm {
-    background: hsl(var(--surface-warm));
+  .surface-brand {
+    background: hsl(var(--brand));
+    color: white;
   }
 
-  .surface-espresso {
-    background: hsl(var(--espresso));
-    color: hsl(var(--espresso-foreground));
+  .surface-dark {
+    background: hsl(var(--surface-dark));
+    color: hsl(var(--surface-dark-foreground));
   }
 
-  .surface-cream {
-    background: hsl(var(--cream));
+  .glow-blue {
+    box-shadow: 0 0 80px 20px hsl(var(--brand-glow) / 0.2),
+                0 0 200px 60px hsl(var(--brand-glow) / 0.08);
   }
 
-  .glow-gold {
-    box-shadow: 0 0 80px 20px hsl(var(--gold) / 0.15),
-                0 0 200px 60px hsl(var(--gold) / 0.05);
-  }
-
-  .text-gradient-gold {
-    background: linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-glow)), hsl(var(--caramel)));
+  .text-gradient-brand {
+    background: linear-gradient(135deg, hsl(var(--brand-light)), hsl(var(--brand-glow)), white);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -123,32 +118,24 @@
 
   .img-cinematic {
     @apply w-full h-full object-cover;
-    filter: brightness(0.5) contrast(1.1) saturate(1.2);
+    filter: brightness(0.4) contrast(1.15) saturate(0.8);
   }
 
-  .img-warm {
+  .img-brand {
     @apply w-full h-full object-cover;
-    filter: sepia(0.15) brightness(0.9) contrast(1.05);
+    filter: brightness(0.85) contrast(1.05);
   }
 
   .accent-hover {
     @apply transition-colors duration-300;
   }
   .accent-hover:hover {
-    color: hsl(var(--gold));
+    color: hsl(var(--brand-light));
   }
 }
 
 @layer utilities {
   .ease-expo {
     transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
-  }
-
-  .perspective-1000 {
-    perspective: 1000px;
-  }
-
-  .preserve-3d {
-    transform-style: preserve-3d;
   }
 }
