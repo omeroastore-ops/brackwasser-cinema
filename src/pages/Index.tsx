@@ -30,7 +30,7 @@ const useTilt = () => {
 };
 
 /* ─── SCROLL TEXT REVEAL ─── */
-const RevealText = ({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) => (
+const RevealText = ({ children, className = '', delay = 0, style }: { children: React.ReactNode; className?: string; delay?: number; style?: React.CSSProperties }) => (
   <div className="overflow-hidden">
     <motion.div
       initial={{ y: '110%', rotate: 3 }}
