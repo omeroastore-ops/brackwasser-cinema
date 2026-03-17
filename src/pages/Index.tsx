@@ -38,6 +38,7 @@ const RevealText = ({ children, className = '', delay = 0, style }: { children: 
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 1, delay, ease }}
       className={className}
+      style={style}
     >
       {children}
     </motion.div>
