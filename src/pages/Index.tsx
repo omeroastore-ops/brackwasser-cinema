@@ -1,36 +1,73 @@
-import { motion, useScroll, useTransform, useMotionValue, useSpring, MotionValue } from 'framer-motion';
-import { useRef, useState, useEffect, type ReactNode } from 'react';
+import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import { supabase } from "@/lib/supabase";
+import {
+  useRef,
+  useState,
+  useEffect,
+  type ReactNode,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import heroImg from '@/assets/hero-cafe.jpg';
 import aboutImg from '@/assets/about-detail.jpg';
-import gallery1 from '@/assets/gallery-1.jpg';
-import gallery2 from '@/assets/gallery-2.jpg';
-import gallery3 from '@/assets/gallery-3.jpg';
-import gallery4 from '@/assets/gallery-4.jpg';
-import gallery5 from '@/assets/gallery-5.jpg';
-import merchHoodie from '@/assets/merch-hoodie.jpg';
-import merchTote from '@/assets/merch-tote.jpg';
-import merchBeanie from '@/assets/merch-beanie.jpg';
 
 const ease = [0.23, 1, 0.32, 1] as const;
+
+/* ─── MOBILE HELPER ─── */
+const useMobileCheck = () => {
+  const [mobile, setMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  return mobile;
+};
 
 /* ─── 3D TILT HOOK ─── */
 const useTilt = (intensity = 12) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [intensity, -intensity]), { stiffness: 150, damping: 20 });
-  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-intensity, intensity]), { stiffness: 150, damping: 20 });
 
-  const handleMouse = (e: React.MouseEvent<HTMLDivElement>) => {
+  const rotateX = useSpring(
+    useTransform(y, [-0.5, 0.5], [intensity, -intensity]),
+    { stiffness: 150, damping: 20 }
+  );
+
+  const rotateY = useSpring(
+    useTransform(x, [-0.5, 0.5], [-intensity, intensity]),
+    { stiffness: 150, damping: 20 }
+  );
+
+  const handleMouse = (e: ReactMouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     x.set((e.clientX - rect.left) / rect.width - 0.5);
     y.set((e.clientY - rect.top) / rect.height - 0.5);
   };
-  const reset = () => { x.set(0); y.set(0); };
+
+  const reset = () => {
+    x.set(0);
+    y.set(0);
+  };
+
   return { rotateX, rotateY, handleMouse, reset };
 };
 
 /* ─── SCROLL TEXT REVEAL ─── */
-const RevealText = ({ children, className = '', delay = 0, style }: { children: ReactNode; className?: string; delay?: number; style?: React.CSSProperties }) => (
+const RevealText = ({
+  children,
+  className = '',
+  delay = 0,
+  style,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  style?: CSSProperties;
+}) => (
   <div className="overflow-hidden">
     <motion.div
       initial={{ y: '120%', rotate: 4, skewY: 2 }}
@@ -45,26 +82,20 @@ const RevealText = ({ children, className = '', delay = 0, style }: { children: 
   </div>
 );
 
-/* ─── HORIZONTAL MARQUEE ─── */
-const Marquee = ({ text, speed = 20, className = '' }: { text: string; speed?: number; className?: string }) => (
-  <div className={`overflow-hidden whitespace-nowrap ${className}`}>
-    <motion.div
-      animate={{ x: ['0%', '-50%'] }}
-      transition={{ duration: speed, repeat: Infinity, ease: 'linear' }}
-      className="inline-flex"
-    >
-      {[...Array(6)].map((_, i) => (
-        <span key={i} className="inline-block mx-8">{text}</span>
-      ))}
-    </motion.div>
-  </div>
-);
-
 /* ─── PARALLAX WRAPPER ─── */
-const ParallaxLayer = ({ children, speed = 0.5, className = '' }: { children: ReactNode; speed?: number; className?: string }) => {
+const ParallaxLayer = ({
+  children,
+  speed = 0.5,
+  className = '',
+}: {
+  children: ReactNode;
+  speed?: number;
+  className?: string;
+}) => {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
   const y = useTransform(scrollYProgress, [0, 1], [`${speed * 30}%`, `${-speed * 30}%`]);
+
   return (
     <motion.div ref={ref} style={{ y }} className={className}>
       {children}
@@ -75,833 +106,945 @@ const ParallaxLayer = ({ children, speed = 0.5, className = '' }: { children: Re
 /* ─── NAV ─── */
 const Nav = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 100);
     window.addEventListener('scroll', fn, { passive: true });
     return () => window.removeEventListener('scroll', fn);
   }, []);
 
+  const links = [
+    { label: 'Café', href: '#about' },
+    { label: 'Karte', href: '#menu' },
+    { label: 'Galerie', href: '#gallery' },
+    { label: 'Kollektion', href: '#merch' },
+    { label: 'Kontakt', href: '#location' },
+  ];
+
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 1, delay: 0.5, ease }}
-      className={`fixed top-0 w-full z-50 flex justify-between items-center px-6 md:px-12 py-5 transition-all duration-700 ${
-        scrolled ? 'bg-background/80 backdrop-blur-xl border-b border-border/50' : ''
-      }`}
-    >
-      <a href="#" className={`text-lg font-black tracking-[0.4em] uppercase transition-colors duration-500 ${scrolled ? 'text-foreground' : 'text-white'}`}>
-        BRACKWASSER
-      </a>
-      <div className={`hidden md:flex gap-10 text-[10px] uppercase tracking-[0.3em] font-semibold transition-colors duration-500 ${scrolled ? 'text-muted-foreground' : 'text-white/60'}`}>
-        {[
-          { label: 'Café', href: '#about' },
-          { label: 'Karte', href: '#menu' },
-          { label: 'Galerie', href: '#gallery' },
-          { label: 'Kollektion', href: '#merch' },
-          { label: 'Kontakt', href: '#location' },
-        ].map(link => (
-          <a key={link.href} href={link.href} className="hover:text-primary transition-colors duration-300">
-            {link.label}
-          </a>
-        ))}
-      </div>
-    </motion.nav>
+    <>
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 1, delay: 0.5, ease }}
+        className={`fixed top-0 w-full z-50 flex justify-between items-center px-4 md:px-12 py-5 transition-all duration-700 ${
+          scrolled ? 'bg-background/80 backdrop-blur-xl border-b border-border/50' : ''
+        }`}
+      >
+        <a
+          href="#"
+          className={`text-lg font-black tracking-[0.4em] uppercase transition-colors duration-500 ${
+            scrolled ? 'text-foreground' : 'text-white'
+          }`}
+        >
+          BRACKWASSER
+        </a>
+
+        <div
+          className={`hidden md:flex gap-10 text-[10px] uppercase tracking-[0.3em] font-semibold transition-colors duration-500 ${
+            scrolled ? 'text-muted-foreground' : 'text-white/60'
+          }`}
+        >
+          {links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="hover:text-primary transition-colors duration-300"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setMobileOpen(true)}
+          className={`md:hidden text-2xl leading-none transition-colors duration-300 ${
+            scrolled ? 'text-foreground' : 'text-white'
+          }`}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+      </motion.nav>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md md:hidden">
+          <div className="flex justify-between items-center px-4 py-5 border-b border-white/10">
+            <span className="text-white text-lg font-black tracking-[0.3em] uppercase">
+              BRACKWASSER
+            </span>
+
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="text-white text-3xl leading-none"
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="flex flex-col px-6 py-8 gap-6">
+            {links.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className="text-white text-lg uppercase tracking-[0.25em] border-b border-white/10 pb-4"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
 /* ─── HERO ─── */
-const Hero = () => {
+const Hero = ({
+  heroTitle,
+  heroSubtitle,
+  heroButtonText,
+  heroVideoUrl,
+  heroImageUrl,
+  heroMode,
+}: {
+  heroTitle: string;
+  heroSubtitle: string;
+  heroButtonText: string;
+  heroVideoUrl?: string;
+  heroImageUrl?: string;
+  heroMode?: string;
+}) => {
+  const isMobile = useMobileCheck();
   const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
-  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.4]);
-  const bgRotate = useTransform(scrollYProgress, [0, 1], [0, 3]);
-  const contentY = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const titleX = useTransform(scrollYProgress, [0, 1], ['0%', '-15%']);
-  const subtitleX = useTransform(scrollYProgress, [0, 1], ['0%', '20%']);
-  const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [0.55, 0.95]);
-  const lineScale = useTransform(scrollYProgress, [0, 0.5], [1, 3]);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
+
+  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", isMobile ? "12%" : "25%"]);
+  const bgScale = useTransform(scrollYProgress, [0, 1], [1, isMobile ? 1.03 : 1.08]);
+  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", isMobile ? "20%" : "50%"]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
 
   return (
-    <section ref={ref} className="relative h-[130vh] w-full overflow-hidden">
-      {/* Parallax + rotating background */}
-      <motion.div style={{ y: bgY, scale: bgScale, rotate: bgRotate }} className="absolute inset-[-10%] z-0">
-        <img src={heroImg} className="w-full h-full object-cover" alt="Brackwasser Café" />
-      </motion.div>
-
-      {/* Layered overlays */}
-      <motion.div style={{ opacity: overlayOpacity }} className="absolute inset-0 z-[1] bg-gradient-to-b from-navy/80 via-brand-dark/40 to-navy/95" />
-      <div className="absolute inset-0 z-[1] bg-gradient-to-r from-navy/70 via-transparent to-navy/30" />
-      <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_30%_50%,hsl(var(--brand-glow)/0.15),transparent_70%)]" />
-
-      {/* Animated glow orbs */}
+    <section ref={ref} className="relative h-[95vh] md:h-[120vh] w-full overflow-hidden">
+      {/* HERO BACKGROUND */}
       <motion.div
-        animate={{ x: [0, 50, 0], y: [0, -30, 0], scale: [1, 1.2, 1] }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute top-[20%] left-[25%] w-[700px] h-[700px] rounded-full bg-brand-glow/12 blur-[200px] z-[2]"
-      />
+  style={{ y: bgY, scale: bgScale }}
+  className="absolute inset-0 z-0"
+>
+  {heroMode?.toLowerCase?.() === "image" ? (
+  <img
+    key={heroImageUrl || heroImg}
+    src={heroImageUrl || heroImg}
+    className="absolute inset-0 w-full h-full object-cover"
+    alt="Hero"
+  />
+) : heroVideoUrl ? (
+  <video
+    key={heroVideoUrl}
+    src={heroVideoUrl}
+    className="absolute inset-0 w-full h-full object-cover"
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
+) : (
+  <img
+    key={heroImageUrl || heroImg}
+    src={heroImageUrl || heroImg}
+    className="absolute inset-0 w-full h-full object-cover"
+    alt="Hero"
+  />
+)}
+</motion.div>
+
+      {/* OVERLAY */}
+      <div className="absolute inset-0 bg-black/50 z-[1]" />
+
+      {/* CONTENT */}
       <motion.div
-        animate={{ x: [0, -40, 0], y: [0, 40, 0], scale: [1, 0.8, 1] }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute bottom-[20%] right-[15%] w-[500px] h-[500px] rounded-full bg-brand-light/10 blur-[180px] z-[2]"
-      />
+        style={{ y: contentY, opacity: contentOpacity }}
+        className="relative z-20 h-full flex flex-col justify-center px-6 md:px-20"
+      >
+        <h1 className="text-[14vw] md:text-[10vw] font-black uppercase leading-[0.9] text-white">
+          {heroTitle}
+        </h1>
 
-      {/* Geometric lines with scroll scale */}
-      <motion.div style={{ scaleY: lineScale }} className="absolute top-0 left-[15%] w-px h-full bg-gradient-to-b from-transparent via-white/10 to-transparent z-[3] origin-top" />
-      <motion.div style={{ scaleY: lineScale }} className="absolute top-0 right-[25%] w-px h-full bg-gradient-to-b from-transparent via-white/5 to-transparent z-[3] origin-top" />
-      <div className="absolute top-[45%] left-0 w-full h-px bg-gradient-to-r from-transparent via-white/5 to-transparent z-[3]" />
-      <div className="absolute top-[65%] left-0 w-full h-px bg-gradient-to-r from-transparent via-white/3 to-transparent z-[3]" />
+        <p className="mt-4 text-white/70 max-w-xl text-sm md:text-base">
+          {heroSubtitle}
+        </p>
 
-      {/* Content */}
-      <motion.div style={{ y: contentY, opacity: contentOpacity }} className="relative z-20 h-full flex flex-col justify-center px-6 md:px-20">
-        {/* Label */}
-        <motion.div
-          initial={{ opacity: 0, x: -60 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 1.4, delay: 0.3, ease }}
-          className="flex items-center gap-4 mb-10"
-        >
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 1, delay: 0.6, ease }}
-            className="w-16 h-px bg-brand-glow/60 origin-left"
-          />
-          <p className="text-[10px] md:text-xs uppercase tracking-[0.8em] text-white/40 font-semibold">
-            Wittmund — Hafen Ost — Pop-Up Design Café
-          </p>
-        </motion.div>
-
-        {/* Main title with scroll-diverging X */}
-        <div className="relative">
-          <motion.div style={{ x: titleX }}>
-            <RevealText className="text-[18vw] md:text-[13vw] font-black uppercase leading-[0.82] tracking-[-0.04em] text-white">
-              BRACK
-            </RevealText>
-          </motion.div>
-          <motion.div style={{ x: subtitleX }}>
-            <RevealText delay={0.15} className="text-[18vw] md:text-[13vw] font-black uppercase leading-[0.82] tracking-[-0.04em] text-transparent" style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.35)' }}>
-              WASSER
-            </RevealText>
-          </motion.div>
-
-          {/* Floating accent panel */}
-          <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ duration: 1.8, delay: 0.9, ease }}
-            className="absolute -right-4 top-[20%] w-[250px] md:w-[350px] h-[70%] bg-primary/15 origin-left z-[-1] blur-sm"
-          />
-          <motion.div
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: 1.2, delay: 1.2, ease }}
-            className="absolute -left-6 top-0 w-1 h-full bg-brand-glow/30 origin-top"
-          />
-        </div>
-
-        {/* CTA */}
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 1.2, delay: 0.7, ease }}
-          className="mt-14 flex flex-col sm:flex-row items-start gap-6 md:gap-12"
-        >
-          <a href="#about" className="group relative px-12 py-5 bg-white text-navy text-[10px] uppercase tracking-[0.3em] font-bold overflow-hidden">
-            <span className="relative z-10 group-hover:text-white transition-colors duration-500">Das Café entdecken</span>
-            <div className="absolute inset-0 bg-primary scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-600 ease-expo" />
+        <div className="mt-8 flex gap-6">
+          <a
+            href="#about"
+            className="px-8 py-4 bg-white text-black text-xs uppercase tracking-[0.2em] font-bold"
+          >
+            {heroButtonText}
           </a>
-          <a href="#gallery" className="group text-[10px] uppercase tracking-[0.3em] font-bold text-white/40 hover:text-white transition-colors duration-500 flex items-center gap-4 py-5">
-            <span className="w-8 h-px bg-white/20 group-hover:w-14 transition-all duration-700 ease-expo" />
+
+          <a
+            href="#gallery"
+            className="text-white/60 text-xs uppercase tracking-[0.2em]"
+          >
             Galerie ansehen
           </a>
-        </motion.div>
-
-        {/* Side elements */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
-          className="absolute right-6 md:right-12 bottom-28 hidden lg:flex flex-col items-center gap-4"
-        >
-          <motion.div animate={{ height: [40, 60, 40] }} transition={{ duration: 4, repeat: Infinity }} className="w-px bg-white/15" />
-          <p className="text-[9px] uppercase tracking-[0.5em] text-white/15 [writing-mode:vertical-rl]">
-            Kaffee trifft Kreativität — Seit 2024
-          </p>
-        </motion.div>
-
-        {/* Scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2.2 }}
-          className="absolute bottom-14 left-6 md:left-20 flex items-center gap-3"
-        >
-          <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity }}
-            className="w-5 h-9 border border-white/15 rounded-full flex justify-center pt-2"
-          >
-            <motion.div animate={{ opacity: [0.2, 0.8, 0.2] }} transition={{ duration: 2.5, repeat: Infinity }} className="w-1 h-2 bg-white/50 rounded-full" />
-          </motion.div>
-          <span className="text-[9px] uppercase tracking-[0.3em] text-white/15 font-medium">Scroll</span>
-        </motion.div>
+        </div>
       </motion.div>
     </section>
   );
 };
 
-/* ─── SLIDING MARQUEE TRANSITION ─── */
+const MusicPlayer = ({ musicUrl }: { musicUrl?: string }) => {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const tryPlay = async () => {
+      if (!musicUrl) return;
+
+      try {
+        await audioRef.current?.play();
+        setPlaying(true);
+      } catch {
+        setPlaying(false);
+      }
+    };
+
+    tryPlay();
+  }, [musicUrl]);
+
+  const toggle = async () => {
+    if (!audioRef.current) return;
+
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      try {
+        await audioRef.current.play();
+        setPlaying(true);
+      } catch {}
+    }
+  };
+
+  if (!musicUrl) return null;
+
+  return (
+    <>
+      <audio ref={audioRef} src={musicUrl} loop />
+
+      <button
+        onClick={toggle}
+        className="fixed bottom-5 right-5 z-[9999] w-14 h-14 rounded-full bg-black/50 text-white flex items-center justify-center"
+      >
+        {playing ? "❚❚" : "▶️"}
+      </button>
+    </>
+  );
+};
+
+/* ─── MARQUEE TRANSITION ─── */
 const MarqueeTransition = ({ bg = 'bg-background' }: { bg?: string }) => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const x = useTransform(scrollYProgress, [0, 1], ['0%', '-20%']);
-  const opacity = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0, 1, 1, 0]);
-
   return (
-    <motion.div ref={ref} style={{ opacity }} className={`relative py-6 md:py-10 overflow-hidden ${bg}`}>
-      <motion.div style={{ x }} className="flex whitespace-nowrap text-[8vw] md:text-[6vw] font-black uppercase text-primary/[0.06] leading-none select-none">
-        {[...Array(4)].map((_, i) => (
-          <span key={i} className="mx-12">BRACKWASSER • DESIGN • CAFÉ • WITTMUND •</span>
+    <div className={`py-8 md:py-12 overflow-hidden ${bg}`}>
+      <div className="flex whitespace-nowrap text-[10vw] md:text-[6vw] font-black uppercase text-primary/10">
+        {[...Array(3)].map((_, i) => (
+          <span key={i} className="mx-10">
+            BRACKWASSER • DESIGN • CAFÉ •
+          </span>
         ))}
-      </motion.div>
-      <motion.div
-        whileInView={{ scaleX: 1 }}
-        initial={{ scaleX: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.8, ease }}
-        className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent origin-center"
-      />
-    </motion.div>
-  );
-};
-
-/* ─── ABOUT ─── */
-const About = () => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const imgY = useTransform(scrollYProgress, [0, 1], ['20%', '-20%']);
-  const textY = useTransform(scrollYProgress, [0, 1], ['10%', '-10%']);
-  const decorY = useTransform(scrollYProgress, [0, 1], ['30%', '-30%']);
-  const decorX = useTransform(scrollYProgress, [0, 1], ['10%', '-10%']);
-  const imgScale = useTransform(scrollYProgress, [0, 0.4, 0.8], [0.8, 1.05, 1.1]);
-  const imgRotate = useTransform(scrollYProgress, [0, 1], [-2, 2]);
-  const blockY = useTransform(scrollYProgress, [0, 1], ['-10%', '20%']);
-  const blockRotate = useTransform(scrollYProgress, [0, 1], [-5, 5]);
-
-  return (
-    <section ref={ref} id="about" className="relative py-[20vh] md:py-[35vh] overflow-hidden bg-background">
-      {/* Huge parallaxing watermark */}
-      <motion.div style={{ y: decorY, x: decorX }} className="absolute -top-[15%] -right-[20%] text-[30vw] font-black uppercase text-primary/[0.025] leading-none select-none pointer-events-none">
-        CAFÉ
-      </motion.div>
-
-      {/* Multiple floating blue shapes */}
-      <motion.div
-        style={{ y: useTransform(scrollYProgress, [0, 1], ['0%', '-40%']), rotate: useTransform(scrollYProgress, [0, 1], [0, 15]) }}
-        className="absolute right-[10%] top-[10%] w-[200px] h-[200px] border border-primary/10 z-0"
-      />
-      <motion.div
-        style={{ y: useTransform(scrollYProgress, [0, 1], ['10%', '-20%']) }}
-        className="absolute left-[5%] bottom-[20%] w-[80px] h-[80px] bg-primary/5 z-0"
-      />
-
-      {/* Animated accent bar */}
-      <motion.div
-        whileInView={{ scaleY: 1 }}
-        initial={{ scaleY: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.5, ease }}
-        className="absolute left-0 top-[15%] w-1.5 h-[300px] bg-primary origin-top"
-      />
-
-      <div className="relative px-6 md:px-20 max-w-[1500px] mx-auto">
-        <div className="grid md:grid-cols-12 gap-6 md:gap-8 items-start">
-          {/* Image with intense parallax + scale + rotate */}
-          <motion.div style={{ y: imgY }} className="md:col-span-5 relative z-10">
-            <div className="perspective-container">
-              <motion.div
-                style={{ scale: imgScale, rotate: imgRotate }}
-                className="aspect-[3/4] overflow-hidden relative shadow-2xl"
-              >
-                <img src={aboutImg} className="img-brand hover:scale-115 transition-transform duration-[2.5s]" alt="Kaffeedetail" />
-                {/* Corner accent */}
-                <motion.div
-                  whileInView={{ x: 0, opacity: 1 }}
-                  initial={{ x: -40, opacity: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1, delay: 0.4, ease }}
-                  className="absolute bottom-0 left-0 w-1/3 h-1/4 bg-primary flex items-center justify-center"
-                >
-                  <p className="text-[9px] uppercase tracking-[0.3em] text-primary-foreground font-bold">Est. 2024</p>
-                </motion.div>
-              </motion.div>
-            </div>
-
-            {/* Multiple floating layers behind image */}
-            <motion.div
-              style={{ y: blockY, rotate: blockRotate }}
-              className="absolute -bottom-10 -right-10 w-3/4 h-3/4 bg-primary/8 -z-10"
-            />
-            <motion.div
-              style={{ y: useTransform(scrollYProgress, [0, 1], ['5%', '-15%']) }}
-              className="absolute -top-6 -left-6 w-1/2 h-1/3 border border-primary/10 -z-10"
-            />
-          </motion.div>
-
-          {/* Text */}
-          <motion.div style={{ y: textY }} className="md:col-span-6 md:col-start-7 md:mt-[20vh] relative z-20">
-            <div className="space-y-6">
-              <motion.p
-                whileInView={{ opacity: 1, x: 0 }}
-                initial={{ opacity: 0, x: -30 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, ease }}
-                className="text-[10px] uppercase tracking-[0.5em] font-bold text-primary flex items-center gap-3"
-              >
-                <motion.span whileInView={{ scaleX: 1 }} initial={{ scaleX: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, ease }} className="inline-block w-8 h-px bg-primary origin-left" />
-                Über uns
-              </motion.p>
-
-              <RevealText>
-                <h2 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase leading-[0.9] text-foreground">
-                  Ein Ort
-                </h2>
-              </RevealText>
-              <RevealText delay={0.1}>
-                <h2 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase leading-[0.9] text-primary">
-                  zwischen
-                </h2>
-              </RevealText>
-              <RevealText delay={0.2}>
-                <h2 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase leading-[0.9] text-foreground">
-                  den Gezeiten.
-                </h2>
-              </RevealText>
-
-              <motion.div
-                whileInView={{ opacity: 1, y: 0 }}
-                initial={{ opacity: 0, y: 40 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1, delay: 0.4, ease }}
-                className="pt-6"
-              >
-                <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-lg">
-                  Brackwasser ist kein gewöhnliches Café. Es ist ein temporäres Refugium für Ästheten
-                  und Denker am Hafen Ost. Wir kuratieren Momente aus feinstem Rösthandwerk und
-                  progressivem Design — ein Ort, der Kaffee zur Kunst erhebt.
-                </p>
-              </motion.div>
-
-              {/* Counters */}
-              <div className="pt-12 flex gap-12 md:gap-20">
-                {['Röstung', 'Design', 'Kultur'].map((label, i) => (
-                  <motion.div
-                    key={label}
-                    whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-                    initial={{ opacity: 0, y: 40, rotateX: -30 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.5 + i * 0.15, ease, duration: 0.8 }}
-                    className="group cursor-default perspective-container"
-                  >
-                    <p className="text-5xl md:text-7xl font-black text-primary group-hover:text-brand-glow transition-colors duration-500">0{i + 1}</p>
-                    <p className="text-[10px] uppercase tracking-[0.3em] font-semibold text-muted-foreground mt-2">{label}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </div>
       </div>
-    </section>
-  );
-};
-
-/* ─── MENU ─── */
-const menuItems = [
-  { n: 'Americano', p: '4.0' }, { n: 'Espresso', p: '3.0' },
-  { n: 'Espresso Doppio', p: '4.0' }, { n: 'Filterkaffee', p: '4.0' },
-  { n: 'Cappuccino', p: '4.5' }, { n: 'Flat White', p: '5.0' },
-  { n: 'Milchkaffee', p: '5.5' }, { n: 'Latte Macchiato', p: '5.0' },
-  { n: 'Chococino', p: '5.5' }, { n: 'Espresso Tonic', p: '5.5' },
-  { n: 'Heiße Schokolade', p: '4.0' }, { n: 'Tee diverse Sorten', p: '3.5' },
-  { n: 'Bio Limonade', p: '3.5' }, { n: 'Fritz Cola', p: '3.5' },
-];
-
-const Menu = () => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const headerX = useTransform(scrollYProgress, [0, 1], ['-8%', '8%']);
-  const bgRotate = useTransform(scrollYProgress, [0, 1], [-3, 3]);
-  const sectionScale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.95, 1, 1, 0.98]);
-
-  return (
-    <motion.section
-      ref={ref}
-      id="menu"
-      style={{ scale: sectionScale }}
-      className="relative py-[15vh] md:py-[22vh] surface-navy overflow-hidden rounded-none md:rounded-[2px]"
-    >
-      {/* Floating geometric decorations with parallax */}
-      <motion.div
-        style={{ rotate: bgRotate, y: useTransform(scrollYProgress, [0, 1], ['0%', '-15%']) }}
-        className="absolute top-0 right-0 w-[500px] h-[500px] border border-brand-glow/5 rotate-45 translate-x-1/2 -translate-y-1/2"
-      />
-      <motion.div
-        style={{ rotate: useTransform(scrollYProgress, [0, 1], [12, -8]) }}
-        className="absolute bottom-0 left-0 w-[300px] h-[300px] border border-brand-glow/5 -translate-x-1/3 translate-y-1/3"
-      />
-      <div className="absolute top-1/2 right-[8%] w-[600px] h-[600px] rounded-full bg-brand-glow/[0.03] blur-[250px]" />
-      <div className="absolute bottom-[20%] left-[5%] w-[300px] h-[300px] rounded-full bg-primary/[0.05] blur-[150px]" />
-
-      <div className="max-w-6xl mx-auto px-6 md:px-16 relative">
-        {/* Sticky-feel header with intense parallax */}
-        <motion.div style={{ x: headerX }} className="mb-16 md:mb-28">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-              <motion.p
-                whileInView={{ opacity: 1, x: 0 }}
-                initial={{ opacity: 0, x: -30 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, ease }}
-                className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/40 mb-5 font-semibold flex items-center gap-3"
-              >
-                <motion.span whileInView={{ scaleX: 1 }} initial={{ scaleX: 0 }} viewport={{ once: true }} transition={{ duration: 1, ease }} className="inline-block w-8 h-px bg-brand-glow/30 origin-left" />
-                Die Selektion
-              </motion.p>
-              <RevealText>
-                <h2 className="text-7xl md:text-[9vw] lg:text-[8vw] font-black uppercase text-white leading-[0.88]">
-                  Unsere
-                </h2>
-              </RevealText>
-              <RevealText delay={0.12}>
-                <h2 className="text-7xl md:text-[9vw] lg:text-[8vw] font-black uppercase leading-[0.88]">
-                  <span className="text-gradient-brand">Karte</span>
-                </h2>
-              </RevealText>
-            </div>
-            <motion.span
-              whileInView={{ opacity: 1 }}
-              initial={{ opacity: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="text-[10px] uppercase tracking-[0.3em] text-white/15 font-semibold"
-            >
-              Preise in EUR
-            </motion.span>
-          </div>
-        </motion.div>
-
-        {/* Menu items with dramatic staggered entrance */}
-        <div className="grid md:grid-cols-2 gap-x-16 lg:gap-x-28">
-          {menuItems.map((item, i) => (
-            <motion.div
-              key={i}
-              whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
-              initial={{ opacity: 0, x: i % 2 === 0 ? -50 : 50, rotateY: i % 2 === 0 ? -5 : 5 }}
-              viewport={{ once: true, margin: '-30px' }}
-              transition={{ delay: i * 0.05, duration: 0.8, ease }}
-              className="group relative py-6 md:py-7 border-b border-white/[0.05] cursor-default perspective-container"
-            >
-              {/* Multi-layer hover effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-primary/8 to-transparent scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-800 ease-expo" />
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-1000 delay-100 ease-expo" />
-
-              <div className="relative flex justify-between items-baseline px-4">
-                <span className="text-lg md:text-xl font-medium text-white/70 group-hover:text-white group-hover:translate-x-3 transition-all duration-600 ease-expo">
-                  {item.n}
-                </span>
-                <div className="flex-1 mx-4 border-b border-dotted border-white/[0.06] group-hover:border-brand-glow/15 transition-colors duration-700" />
-                <span className="text-xl md:text-2xl font-black text-white/25 group-hover:text-brand-glow group-hover:scale-110 transition-all duration-600 ease-expo tabular-nums origin-right">
-                  {item.p}
-                </span>
-              </div>
-
-              {/* Accent bars */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 group-hover:h-2/3 bg-primary transition-all duration-600 ease-expo" />
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-px h-0 group-hover:h-1/3 bg-brand-glow/30 transition-all duration-800 ease-expo delay-100" />
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </motion.section>
-  );
-};
-
-/* ─── GALLERY ─── */
-const Gallery = () => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const y1 = useTransform(scrollYProgress, [0, 1], ['25%', '-25%']);
-  const y2 = useTransform(scrollYProgress, [0, 1], ['10%', '-35%']);
-  const y3 = useTransform(scrollYProgress, [0, 1], ['30%', '-15%']);
-  const y4 = useTransform(scrollYProgress, [0, 1], ['5%', '-20%']);
-  const r1 = useTransform(scrollYProgress, [0, 1], [-3, 3]);
-  const r2 = useTransform(scrollYProgress, [0, 1], [4, -2]);
-  const r3 = useTransform(scrollYProgress, [0, 1], [-1, 4]);
-  const headerScale = useTransform(scrollYProgress, [0, 0.3], [0.85, 1]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.2], [0, 1]);
-
-  return (
-    <section ref={ref} id="gallery" className="relative py-[12vh] md:py-[22vh] px-6 md:px-16 overflow-hidden bg-background">
-      {/* Background glows */}
-      <div className="absolute top-[20%] left-0 w-[60vw] h-[60vw] rounded-full bg-primary/[0.04] blur-[250px]" />
-      <div className="absolute bottom-[10%] right-0 w-[40vw] h-[40vw] rounded-full bg-brand-glow/[0.03] blur-[200px]" />
-
-      {/* Header with scroll-driven scale */}
-      <motion.div
-        style={{ scale: headerScale, opacity: headerOpacity }}
-        className="mb-16 md:mb-32 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 max-w-[1500px] mx-auto"
-      >
-        <div>
-          <motion.p
-            whileInView={{ opacity: 1, x: 0 }}
-            initial={{ opacity: 0, x: -30 }}
-            viewport={{ once: true }}
-            className="text-[10px] uppercase tracking-[0.5em] text-primary font-bold mb-5 flex items-center gap-3"
-          >
-            <span className="w-8 h-px bg-primary" />
-            Einblicke
-          </motion.p>
-          <RevealText>
-            <h2 className="text-7xl md:text-[11vw] font-black uppercase text-foreground leading-[0.82]">
-              GAL<span className="text-primary">LERIE</span>
-            </h2>
-          </RevealText>
-        </div>
-        <motion.p
-          whileInView={{ opacity: 1 }}
-          initial={{ opacity: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.4 }}
-          className="text-sm text-muted-foreground max-w-xs"
-        >
-          Impressionen aus unserem Refugium am Hafen Ost.
-        </motion.p>
-      </motion.div>
-
-      {/* Intense collage with more depth */}
-      <div className="relative max-w-[1500px] mx-auto min-h-[80vh] md:min-h-[140vh]">
-        {/* Image 1 – Large left, slow */}
-        <motion.div style={{ y: y1, rotate: r1 }} className="relative md:absolute md:left-0 md:top-0 md:w-[50%] z-10 mb-6 md:mb-0">
-          <GalleryImage src={gallery1} alt="Latte Art" aspect="aspect-[3/4]" />
-        </motion.div>
-
-        {/* Image 2 – Right top, fast */}
-        <motion.div style={{ y: y2, rotate: r2 }} className="relative md:absolute md:right-0 md:top-[3%] md:w-[38%] z-20 mb-6 md:mb-0">
-          <GalleryImage src={gallery2} alt="Ambiente" aspect="aspect-square" delay={0.1} />
-          <motion.div
-            whileInView={{ scaleX: 1 }}
-            initial={{ scaleX: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, ease }}
-            className="absolute -bottom-3 left-0 w-24 h-1 bg-primary origin-left"
-          />
-        </motion.div>
-
-        {/* Image 3 – Center, overlapping both, medium speed */}
-        <motion.div style={{ y: y3, rotate: r3 }} className="relative md:absolute md:left-[22%] md:top-[42%] md:w-[45%] z-30 mb-6 md:mb-0">
-          <GalleryImage src={gallery3} alt="Kaffeetasse" aspect="aspect-[16/10]" delay={0.2} shadow />
-        </motion.div>
-
-        {/* Image 4 – Bottom right, different speed */}
-        <motion.div style={{ y: y4 }} className="relative md:absolute md:right-[1%] md:top-[55%] md:w-[32%] z-20 mb-6 md:mb-0">
-          <GalleryImage src={gallery4} alt="Espressomaschine" aspect="aspect-[4/5]" delay={0.3} />
-        </motion.div>
-
-        {/* Image 5 – Bottom left, with glow */}
-        <motion.div style={{ y: y2, rotate: useTransform(scrollYProgress, [0, 1], [2, -3]) }} className="relative md:absolute md:left-[1%] md:top-[80%] md:w-[26%] z-30">
-          <GalleryImage src={gallery5} alt="Sitzecke" aspect="aspect-square" delay={0.4} glow />
-        </motion.div>
-
-        {/* Floating decorative elements */}
-        <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], ['0%', '-50%']), rotate: useTransform(scrollYProgress, [0, 1], [0, 45]) }}
-          className="hidden md:block absolute right-[15%] top-[30%] w-[100px] h-[100px] border border-primary/10 z-0"
-        />
-        <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], ['0%', '-30%']) }}
-          className="hidden md:block absolute left-[45%] top-[70%] w-[60px] h-[60px] bg-primary/5 z-0"
-        />
-      </div>
-    </section>
-  );
-};
-
-const GalleryImage = ({ src, alt, aspect, delay = 0, shadow = false, glow = false }: {
-  src: string; alt: string; aspect: string; delay?: number; shadow?: boolean; glow?: boolean;
-}) => {
-  const tilt = useTilt(15);
-  return (
-    <div className="perspective-container">
-      <motion.div
-        whileInView={{ opacity: 1, scale: 1, y: 0 }}
-        initial={{ opacity: 0, scale: 0.85, y: 40 }}
-        viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 1.2, delay, ease }}
-        style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY }}
-        onMouseMove={tilt.handleMouse}
-        onMouseLeave={tilt.reset}
-        className={`${aspect} overflow-hidden group relative ${shadow ? 'shadow-[0_25px_80px_-15px_rgba(0,0,0,0.3)]' : ''} ${glow ? 'glow-blue' : ''}`}
-      >
-        <img src={src} alt={alt} className="img-brand group-hover:scale-115 transition-transform duration-[2s] ease-expo" />
-        <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-700" />
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-navy/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      </motion.div>
     </div>
   );
 };
 
-/* ─── MERCH ─── */
-const merchItems = [
-  { t: 'Heavy Hoodie', c: 'Deep Black', label: 'DROP 01', img: merchHoodie },
-  { t: 'Signature Tote', c: 'Raw Canvas', label: 'LIMITED', img: merchTote },
-  { t: 'Design Beanie', c: 'Slate Grey', label: 'EDITION', img: merchBeanie },
-];
-
-const Merch = () => {
+/* ─── ABOUT ─── */
+const About = ({ siteSettings }: { siteSettings: any }) => {
+  const isMobile = useMobileCheck();
   const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const bgTextX = useTransform(scrollYProgress, [0, 1], ['5%', '-15%']);
-  const sectionScale = useTransform(scrollYProgress, [0, 0.15, 0.85, 1], [0.92, 1, 1, 0.96]);
-  const geoRotate = useTransform(scrollYProgress, [0, 1], [12, -12]);
-  const geoY = useTransform(scrollYProgress, [0, 1], ['0%', '-25%']);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  });
+
+  const imgY = useTransform(scrollYProgress, [0, 1], ['8%', '-8%']);
+  const textY = useTransform(scrollYProgress, [0, 1], ['4%', '-4%']);
+  const decorY = useTransform(scrollYProgress, [0, 1], ['12%', '-12%']);
+  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.96, 1.01, 1.04]);
+  const imgRotate = useTransform(scrollYProgress, [0, 1], [-1, 1]);
 
   return (
-    <motion.section
+    <section
       ref={ref}
-      id="merch"
-      style={{ scale: sectionScale }}
-      className="relative py-[15vh] md:py-[28vh] overflow-hidden surface-brand"
+      id="about"
+      className="relative py-24 md:py-32 bg-background overflow-hidden px-6 md:px-16"
     >
-      {/* Parallax geometric shapes */}
+      {/* soft background text */}
       <motion.div
-        style={{ rotate: geoRotate, y: geoY }}
-        className="absolute top-[8%] right-[3%] w-[300px] h-[300px] border border-white/[0.05]"
-      />
-      <motion.div
-        style={{ rotate: useTransform(scrollYProgress, [0, 1], [-15, 15]), y: useTransform(scrollYProgress, [0, 1], ['0%', '-15%']) }}
-        className="absolute bottom-[10%] left-[5%] w-[150px] h-[150px] bg-white/[0.02]"
-      />
-      <motion.div
-        style={{ y: useTransform(scrollYProgress, [0, 1], ['0%', '-30%']) }}
-        className="absolute top-1/3 left-1/4 w-[400px] h-[400px] rounded-full bg-white/[0.02] blur-[150px]"
-      />
-
-      {/* Parallax background text */}
-      <motion.div
-        style={{ x: bgTextX }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[20vw] font-black uppercase text-white/[0.025] leading-none select-none pointer-events-none whitespace-nowrap"
+        style={{ y: decorY }}
+        className="absolute -top-[5%] right-[-8%] text-[24vw] font-black uppercase text-primary/[0.04] leading-none pointer-events-none select-none"
       >
-        STREETWEAR
+        CAFÉ
       </motion.div>
 
-      <div className="relative px-6 md:px-16 max-w-[1500px] mx-auto">
+      {/* soft shapes */}
+      <div className="absolute top-[18%] left-[6%] w-[120px] h-[120px] md:w-[180px] md:h-[180px] border border-primary/10" />
+      <div className="absolute bottom-[18%] right-[8%] w-[90px] h-[90px] md:w-[130px] md:h-[130px] bg-primary/[0.05]" />
+      <div className="absolute left-0 top-[18%] w-[2px] h-[180px] md:h-[240px] bg-primary" />
+
+      <div className="relative max-w-[1150px] mx-auto grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+        {/* image */}
         <motion.div
-          whileInView={{ opacity: 1, y: 0 }}
-          initial={{ opacity: 0, y: 60 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1, ease }}
-          className="mb-16 md:mb-28 flex flex-col md:flex-row justify-between items-start md:items-end gap-8"
+          style={isMobile ? {} : { y: imgY }}
+          className="relative"
         >
-          <div>
-            <motion.p
-              whileInView={{ opacity: 1, x: 0 }}
-              initial={{ opacity: 0, x: -20 }}
+          <motion.div
+            style={isMobile ? {} : { scale: imgScale, rotate: imgRotate }}
+            className="relative aspect-[3/4] overflow-hidden rounded-[22px] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.35)]"
+          >
+            <img
+              src={siteSettings?.about_image_url || aboutImg}
+              alt="About Brackwasser"
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover transition-transform duration-[1400ms] hover:scale-[1.04]"
+            />
+
+            <motion.div
+              whileInView={{ x: 0, opacity: 1 }}
+              initial={{ x: -30, opacity: 0 }}
               viewport={{ once: true }}
-              className="text-[10px] uppercase tracking-[0.5em] text-white/25 font-bold mb-5 flex items-center gap-3"
+              transition={{ duration: 0.8, delay: 0.25 }}
+              className="absolute bottom-0 left-0 bg-primary text-primary-foreground px-6 py-5"
             >
-              <span className="w-8 h-px bg-white/15" />
-              Tragbare Ästhetik
-            </motion.p>
+              <p className="text-[9px] uppercase tracking-[0.3em] font-bold">
+                Est. 2024
+              </p>
+            </motion.div>
+          </motion.div>
+
+          <div className="absolute -bottom-6 -right-6 w-[72%] h-[72%] bg-primary/[0.08] -z-10 rounded-[24px]" />
+          <div className="absolute -top-4 -left-4 w-[42%] h-[26%] border border-primary/10 -z-10 rounded-[18px]" />
+        </motion.div>
+
+        {/* text */}
+        <motion.div
+          style={isMobile ? {} : { y: textY }}
+          className="relative"
+        >
+          <motion.p
+            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, x: -20 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-[10px] uppercase tracking-[0.5em] font-bold text-primary flex items-center gap-3 mb-5"
+          >
+            <span className="inline-block w-8 h-px bg-primary" />
+            Über uns
+          </motion.p>
+
+          <div className="space-y-1 md:space-y-2">
             <RevealText>
-              <h2 className="text-7xl md:text-[9vw] lg:text-[8vw] font-black uppercase text-white leading-[0.88]">
-                DROP 01
+              <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black uppercase leading-[0.95] text-foreground">
+                {siteSettings?.about_title_1 || "Ein Ort"}
+              </h2>
+            </RevealText>
+
+            <RevealText delay={0.08}>
+              <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black uppercase leading-[0.95] text-primary">
+                {siteSettings?.about_title_2 || "zwischen"}
+              </h2>
+            </RevealText>
+
+            <RevealText delay={0.16}>
+              <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black uppercase leading-[0.95] text-foreground">
+                {siteSettings?.about_title_3 || "den Gezeiten."}
               </h2>
             </RevealText>
           </div>
-          <p className="text-sm text-white/30 max-w-xs">
-            Limitierte Stücke. Kein Restock. Jedes Teil ein Statement.
+
+          <motion.p
+            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 24 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.75, delay: 0.2 }}
+            className="mt-7 text-base md:text-lg text-muted-foreground leading-relaxed max-w-xl"
+          >
+            {siteSettings?.about_description ||
+              "Brackwasser ist kein gewöhnliches Café. Es ist ein temporäres Refugium für Ästheten und Denker am Hafen Ost. Wir kuratieren Momente aus feinstem Rösthandwerk und progressivem Design — ein Ort, der Kaffee zur Kunst erhebt."}
+          </motion.p>
+
+          {/* counters */}
+          <div className="pt-10 flex gap-10 md:gap-16">
+            {['Röstung', 'Design', 'Kultur'].map((label, i) => (
+              <motion.div
+                key={label}
+                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 24 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
+                className="group"
+              >
+                <p className="text-4xl md:text-6xl font-black text-primary group-hover:text-brand-glow transition-colors duration-300">
+                  0{i + 1}
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.28em] font-semibold text-muted-foreground mt-2">
+                  {label}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+};
+
+
+/* ─── MENU ─── */
+const Menu = ({ items }: { items: any[] }) => {
+  const kaffe = items.filter((i) => i.category === "Kaffee");
+  const klassiker = items.filter((i) => i.category === "Klassiker");
+  const erfrischung = items.filter((i) => i.category === "Erfrischung");
+
+  const renderSection = (title: string, data: any[]) => (
+    <div className="mb-16">
+      <motion.h3
+        whileInView={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 20 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="text-2xl md:text-3xl font-bold text-primary mb-6"
+      >
+        {title}
+      </motion.h3>
+
+      <div className="space-y-3">
+        {data.map((item, i) => (
+          <motion.div
+            key={i}
+            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ delay: i * 0.04, duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+            className="group relative overflow-hidden rounded-[16px] border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors duration-500"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/12 via-primary/5 to-transparent scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-500" />
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary scale-y-0 group-hover:scale-y-100 origin-top transition-transform duration-500" />
+
+            <div className="relative flex items-center justify-between gap-4 px-5 py-4 md:px-6 md:py-5">
+              <div className="min-w-0">
+                <p className="text-white text-lg md:text-xl font-semibold group-hover:translate-x-1 transition-transform duration-300">
+                  {item.name}
+                </p>
+                <p className="text-white/40 text-sm mt-1">
+                  {item.description}
+                </p>
+              </div>
+
+              <div className="flex-1 border-b border-dotted border-white/10 group-hover:border-primary/25 transition-colors duration-500 hidden md:block" />
+
+              <p className="text-white/75 group-hover:text-white font-black text-lg md:text-xl whitespace-nowrap transition-colors duration-300">
+                {item.price}
+              </p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <section id="menu" className="relative py-24 md:py-32 px-6 md:px-16 bg-[#0b0f1a] overflow-hidden">
+      <div className="absolute top-1/3 right-[10%] w-[220px] h-[220px] md:w-[340px] md:h-[340px] rounded-full bg-primary/[0.06] blur-[90px] md:blur-[140px]" />
+      <div className="max-w-[1000px] mx-auto relative">
+        <motion.div
+          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 40 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="mb-14 md:mb-20"
+        >
+          <p className="text-[10px] uppercase tracking-[0.45em] text-white/30 mb-4">
+            Die Selektion
           </p>
+
+          <RevealText>
+            <h2 className="text-5xl md:text-7xl font-black uppercase text-white leading-[0.9]">
+              Unsere
+            </h2>
+          </RevealText>
+
+          <RevealText delay={0.08}>
+            <h2 className="text-5xl md:text-7xl font-black uppercase text-primary leading-[0.9]">
+              Karte
+            </h2>
+          </RevealText>
         </motion.div>
 
-        {/* Product cards */}
-        <div className="flex flex-col md:flex-row gap-8 md:gap-10 items-start">
-          {merchItems.map((item, i) => (
-            <MerchCard key={i} item={item} index={i} scrollProgress={scrollYProgress} />
+        {renderSection("Kaffee", kaffe)}
+        {renderSection("Klassiker", klassiker)}
+        {renderSection("Erfrischung", erfrischung)}
+      </div>
+    </section>
+  );
+};
+
+/* ─── GALLERY ─── */
+const Gallery = ({ gallery }: { gallery: any[] }) => {
+  const isMobile = useMobileCheck();
+  const [selectedImage, setSelectedImage] = useState<{
+    image_url: string;
+    description?: string;
+  } | null>(null);
+
+  return (
+    <section id="gallery" className="py-20 md:py-28 px-5 md:px-16 bg-background">
+      <div className="max-w-[1150px] mx-auto">
+        <div className="mb-10 md:mb-14">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-primary mb-4">
+            Impressionen
+          </p>
+
+          <RevealText>
+            <h2 className="text-4xl md:text-6xl font-black uppercase text-foreground leading-[0.95]">
+              GAL<span className="text-primary">LERIE</span>
+            </h2>
+          </RevealText>
+
+          <p className="text-sm md:text-base text-muted-foreground mt-4 max-w-xl leading-relaxed">
+            Eindrücke aus unserem Refugium am Hafen Ost.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+          {gallery.map((img, index) => (
+            <motion.button
+              key={img.id || index}
+              type="button"
+              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 26 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: index * 0.04, duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+              onClick={() =>
+                setSelectedImage({
+                  image_url: img.image_url,
+                  description: img.description,
+                })
+              }
+              className="group relative overflow-hidden rounded-[20px] text-left bg-black/5 focus:outline-none"
+            >
+              <div className="relative overflow-hidden rounded-[20px]">
+                <img
+                  src={img.image_url}
+                  alt={img.description || `Gallery ${index + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                  className={`w-full object-cover block transition duration-500 ${
+                    isMobile ? "" : "group-hover:scale-[1.04]"
+                  } ${
+                    index % 3 === 0
+                      ? "h-[380px] md:h-[420px]"
+                      : index % 3 === 1
+                      ? "h-[280px] md:h-[320px]"
+                      : "h-[320px] md:h-[360px]"
+                  }`}
+                />
+
+                <div
+                  className={`absolute inset-0 bg-gradient-to-t from-black/75 via-black/18 to-transparent transition duration-300 ${
+                    isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  }`}
+                />
+
+                <div className="absolute inset-x-0 bottom-0 p-4 md:p-5">
+                  <p
+                    className={`text-white leading-relaxed transition duration-300 ${
+                      isMobile
+                        ? "text-[13px] opacity-100 translate-y-0"
+                        : "text-[13px] opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0"
+                    }`}
+                  >
+                    {img.description || ""}
+                  </p>
+                </div>
+              </div>
+            </motion.button>
           ))}
         </div>
       </div>
-    </motion.section>
-  );
-};
 
-const MerchCard = ({ item, index, scrollProgress }: { item: typeof merchItems[0]; index: number; scrollProgress: MotionValue<number> }) => {
-  const tilt = useTilt(14);
-  const cardY = useTransform(scrollProgress, [0, 1], [`${index * 5}%`, `${-index * 8}%`]);
-
-  return (
-    <motion.div
-      style={{ y: cardY }}
-      className={`group flex-1 ${index === 1 ? 'md:mt-20' : index === 2 ? 'md:mt-10' : ''}`}
-    >
-      <motion.div
-        whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-        initial={{ opacity: 0, y: 100, rotateX: -10 }}
-        viewport={{ once: true }}
-        transition={{ delay: index * 0.18, ease, duration: 1 }}
-      >
-        <div className="perspective-container">
-          <motion.div
-            style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY }}
-            onMouseMove={tilt.handleMouse}
-            onMouseLeave={tilt.reset}
-            className="relative overflow-hidden mb-6"
+      {selectedImage && (
+        <div
+          onClick={() => setSelectedImage(null)}
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 md:p-6"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[980px] max-h-[92vh] overflow-y-auto rounded-[22px] bg-[#0f1117] border border-white/10"
           >
-            <div className={`${index === 0 ? 'aspect-[3/4]' : index === 1 ? 'aspect-[4/5]' : 'aspect-square'} overflow-hidden`}>
+            <div className="relative">
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-4 right-4 z-10 w-11 h-11 rounded-full bg-black/35 backdrop-blur-md text-white text-2xl"
+              >
+                ×
+              </button>
+
               <img
-                src={item.img}
-                className="w-full h-full object-cover brightness-90 group-hover:brightness-110 group-hover:scale-110 transition-all duration-[1.2s] ease-expo"
-                alt={item.t}
+                src={selectedImage.image_url}
+                alt={selectedImage.description || "Preview"}
+                loading="lazy"
+                decoding="async"
+                className="w-full max-h-[72vh] object-cover md:object-contain rounded-t-[22px]"
               />
             </div>
-            <div className="absolute top-4 left-4 bg-white text-primary text-[8px] px-3 py-1.5 uppercase tracking-[0.2em] font-black">
-              {item.label}
+
+            <div className="p-5 md:p-6">
+              <p className="text-white/85 text-sm md:text-base leading-relaxed">
+                {selectedImage.description || "Brackwasser Galerie"}
+              </p>
             </div>
-            <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-navy/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          </motion.div>
+          </div>
         </div>
-        <h3 className="text-xl font-bold uppercase tracking-wide text-white group-hover:translate-x-2 transition-transform duration-500 ease-expo">{item.t}</h3>
-        <p className="text-[10px] uppercase tracking-[0.3em] text-white/25 mt-1 font-semibold">{item.c}</p>
-      </motion.div>
-    </motion.div>
+      )}
+    </section>
   );
 };
 
-/* ─── FOOTER ─── */
-const Footer = () => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end end'] });
-  const ctaScale = useTransform(scrollYProgress, [0.2, 0.7], [0.7, 1]);
-  const ctaOpacity = useTransform(scrollYProgress, [0.15, 0.5], [0, 1]);
-  const ctaRotateX = useTransform(scrollYProgress, [0.2, 0.7], [15, 0]);
-  const glowScale = useTransform(scrollYProgress, [0.3, 0.8], [0.5, 1.5]);
+
+/* ─── MERCH ─── */
+const Merch = ({ items, siteSettings }: { items: any[]; siteSettings: any }) => {
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [productImages, setProductImages] = useState<any[]>([]);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
+  const openProduct = async (product: any) => {
+    setSelectedProduct(product);
+
+    const { data: images } = await supabase
+      .from("merch_images")
+      .select("*")
+      .eq("merch_id", product.id)
+      .order("sort_order", { ascending: true });
+
+    setProductImages(images || []);
+    setActiveImage(images?.[0]?.image_url || product.image_url);
+  };
 
   return (
-    <footer ref={ref} id="location" className="relative surface-dark pt-[15vh] md:pt-[22vh] pb-12 px-6 md:px-16 overflow-hidden">
-      {/* Animated glow */}
-      <motion.div
-        style={{ scale: glowScale }}
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-brand-glow/[0.06] blur-[180px] rounded-full"
-      />
+    <section id="merch" className="py-24 md:py-32 px-6 md:px-16 bg-[#11141d]">
+      <div className="max-w-[1100px] mx-auto">
+        <div className="mb-14 md:mb-20">
+          <p className="text-xs uppercase tracking-[0.4em] text-white/30 mb-4">
+  {siteSettings?.merch_eyebrow || 'Tragbare Ästhetik'}
+</p>
+          <h2 className="text-5xl md:text-7xl font-black uppercase text-white">
+  {siteSettings?.merch_title || 'DROP 01'}
+</h2>
+        </div>
 
-      <div className="relative max-w-[1500px] mx-auto">
-        <div className="grid md:grid-cols-12 gap-12 md:gap-16 border-b border-white/[0.05] pb-20 md:pb-32">
-          <div className="md:col-span-5 space-y-16">
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 50 }}
-              viewport={{ once: true }}
-              transition={{ ease, duration: 1 }}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {items.map((item, i) => (
+            <MerchCard
+              key={item.id || i}
+              item={item}
+              onSelect={openProduct}
+              isMobile={isMobile}
+            />
+          ))}
+        </div>
+
+        {selectedProduct && (
+          <div
+            onClick={() => {
+              setSelectedProduct(null);
+              setProductImages([]);
+              setActiveImage(null);
+            }}
+            className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-3 md:p-6"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[1100px] max-h-[92vh] overflow-y-auto rounded-[20px] bg-[#0f0f12]"
             >
-              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-5 flex items-center gap-3">
+              <div
+                className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-[1.2fr_0.8fr]"}`}
+              >
+                <div className="p-4 md:p-6 bg-[#111]">
+                  <div className="w-full h-[320px] md:h-[520px] rounded-[16px] overflow-hidden bg-[#1a1a1a]">
+                    <img
+                      src={activeImage || selectedProduct.image_url}
+                      alt={selectedProduct.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
+                    {[selectedProduct.image_url, ...productImages.map((img) => img.image_url)]
+                      .filter((value, index, self) => self.indexOf(value) === index)
+                      .map((img, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setActiveImage(img)}
+                          className={`flex-none overflow-hidden rounded-[12px] ${
+                            activeImage === img ? "border-2 border-white" : "border border-white/10"
+                          }`}
+                          style={{
+                            width: isMobile ? 72 : 88,
+                            height: isMobile ? 72 : 88,
+                          }}
+                        >
+                          <img
+                            src={img}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="p-5 md:p-8 text-white flex flex-col justify-between gap-6">
+                  <div>
+                    <div className="inline-block px-3 py-2 border border-white/15 rounded-full text-[12px] uppercase tracking-[0.08em] text-white/70 mb-4">
+                      {selectedProduct.label}
+                    </div>
+
+                    <h2 className="text-[28px] md:text-[38px] leading-[1.05] font-extrabold">
+                      {selectedProduct.name}
+                    </h2>
+
+                    <p className="mt-3 text-white/65 text-sm md:text-base leading-7">
+                      {selectedProduct.subtitle}
+                    </p>
+
+                    <p className="mt-5 text-[22px] md:text-[28px] font-bold">
+                      {selectedProduct.price}
+                    </p>
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={() => {
+                        const message = `Hallo 👋
+
+ich interessiere mich für dieses Produkt:
+
+Produkt: ${selectedProduct.name}
+Preis: ${selectedProduct.price}
+
+Es sieht wirklich sehr hochwertig aus.
+Könnt ihr mir bitte mehr Informationen dazu geben?
+
+Vielen Dank!`;
+
+                        navigator.clipboard.writeText(message);
+                        alert("Die Nachricht wurde kopiert. Füge sie einfach auf Instagram ein.");
+                        window.open("https://instagram.com/brackwasser_designcafe", "_blank");
+                      }}
+                      className="w-full py-4 rounded-[14px] bg-white text-black font-bold"
+                    >
+                      Auf Instagram anfragen
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedProduct(null);
+                        setProductImages([]);
+                        setActiveImage(null);
+                      }}
+                      className="w-full py-4 rounded-[14px] border border-white/15 text-white mt-3"
+                    >
+                      Schließen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const MerchCard = ({
+  item,
+  onSelect,
+  isMobile,
+}: {
+  item: any;
+  onSelect: (product: any) => void;
+  isMobile: boolean;
+}) => {
+  const tilt = useTilt(10);
+
+  return (
+    <div className="group">
+      <div className="perspective-container">
+        <motion.div
+          style={isMobile ? {} : { rotateX: tilt.rotateX, rotateY: tilt.rotateY }}
+          onMouseMove={isMobile ? undefined : tilt.handleMouse}
+          onMouseLeave={isMobile ? undefined : tilt.reset}
+          onClick={() => onSelect(item)}
+          className="group relative overflow-hidden rounded-[18px] cursor-pointer"
+        >
+          <img
+            src={item.image_url}
+            alt={item.name}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-[320px] object-cover transition duration-500 group-hover:scale-[1.04]"
+          />
+
+          <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 bg-gradient-to-t from-black/75 to-transparent">
+            <h3 className="text-white text-[16px] font-semibold">{item.name}</h3>
+            <p className="text-white/75 text-[13px]">{item.subtitle}</p>
+            <p className="text-white font-bold mt-1">{item.price}</p>
+          </div>
+
+          <div className="absolute top-4 left-4 bg-white text-black text-[10px] px-3 py-1.5 uppercase tracking-[0.2em] font-black rounded-full">
+            {item.label}
+          </div>
+        </motion.div>
+      </div>
+
+      <h3 className="mt-4 text-xl font-bold uppercase tracking-wide text-white">
+        {item.name}
+      </h3>
+      <p className="text-[10px] uppercase tracking-[0.3em] text-white/25 mt-1 font-semibold">
+        {item.subtitle}
+      </p>
+    </div>
+  );
+};
+
+/* ─── MOBILE HELPER ─── */
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  return isMobile;
+};
+
+
+/* ─── FOOTER ─── */
+const Footer = ({ siteSettings }: { siteSettings: any }) => {
+  return (
+    <footer
+      id="location"
+      className="relative surface-dark pt-20 md:pt-24 pb-12 px-6 md:px-16 overflow-hidden"
+    >
+      <div className="relative max-w-[1100px] mx-auto">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-14 items-start">
+          <div className="space-y-8">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-4 flex items-center gap-3">
                 <span className="w-8 h-px bg-brand-glow/15" />
                 Standort
               </p>
-              <RevealText>
-                <p className="text-4xl md:text-6xl font-black uppercase text-white leading-[1]">Am Hafen</p>
-              </RevealText>
-              <RevealText delay={0.1}>
-                <p className="text-4xl md:text-6xl font-black uppercase text-white leading-[1]">Ost 2</p>
-              </RevealText>
-              <motion.p
-                whileInView={{ opacity: 1 }}
-                initial={{ opacity: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.4 }}
-                className="text-sm text-white/25 mt-4"
-              >
-                26409 Wittmund · Deutschland
-              </motion.p>
-            </motion.div>
 
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 40 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2, ease, duration: 0.8 }}
-            >
-              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-5 flex items-center gap-3">
+              <h2 className="text-4xl md:text-6xl font-black uppercase text-white leading-[0.95]">
+                {siteSettings?.address || "Am Hafen Ost 2"}
+              </h2>
+
+              <p className="text-base text-white/35 mt-4">
+                {siteSettings?.address || "26409 Wittmund · Deutschland"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-4 flex items-center gap-3">
                 <span className="w-8 h-px bg-brand-glow/15" />
                 Öffnungszeiten
               </p>
-              <p className="text-xl md:text-2xl font-semibold text-white">Samstag & Sonntag</p>
-              <p className="text-xl md:text-2xl font-semibold text-white/50">11:00 – 17:30</p>
-              <p className="text-sm text-white/15 mt-2">Montag bis Freitag: Geschlossen</p>
-            </motion.div>
-          </div>
 
-          <div className="md:col-span-7 flex flex-col justify-between items-start md:items-end md:text-right">
-            <ParallaxLayer speed={0.3}>
-              <div className="text-[18vw] font-black uppercase text-white/[0.015] leading-none select-none pointer-events-none">
-                BW
-              </div>
-            </ParallaxLayer>
-
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 30 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4, ease }}
-              className="space-y-5"
-            >
-              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold flex items-center gap-3 md:justify-end">
-                Social
-                <span className="w-8 h-px bg-brand-glow/15" />
+              <p className="text-lg md:text-xl font-semibold text-white whitespace-pre-line">
+                {siteSettings?.opening_hours ||
+                  "Samstag & Sonntag\n11:00 – 17:30\nMontag bis Freitag: Geschlossen"}
               </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-4 flex items-center gap-3">
+                <span className="w-8 h-px bg-brand-glow/15" />
+                Kontakt
+              </p>
+
+              <div className="space-y-2">
+                <a
+                  href={`tel:${siteSettings?.phone || "+49123456789"}`}
+                  className="block text-lg md:text-xl font-semibold text-white/85 hover:text-white transition-colors"
+                >
+                  {siteSettings?.phone || "+49 123 456789"}
+                </a>
+
+                <a
+                  href={`mailto:${siteSettings?.email || "info@brackwasser.de"}`}
+                  className="block text-base md:text-lg text-white/60 hover:text-white transition-colors"
+                >
+                  {siteSettings?.email || "info@brackwasser.de"}
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.5em] text-brand-glow/35 font-bold mb-4 flex items-center gap-3">
+                <span className="w-8 h-px bg-brand-glow/15" />
+                Social
+              </p>
+
               <a
-                href="https://instagram.com/brackwasser_designcafe"
+                href={siteSettings?.instagram || "https://instagram.com/brackwasser_designcafe"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block text-xl md:text-2xl font-bold text-white hover:text-brand-glow transition-colors duration-500"
               >
                 @brackwasser_designcafe
               </a>
-            </motion.div>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm min-h-[320px]">
+            <iframe
+              title="Brackwasser Location"
+              src={
+                siteSettings?.map_url ||
+                "https://www.google.com/maps?q=Am%20Hafen%20Ost%202,%2026409%20Wittmund,%20Deutschland&z=15&output=embed"
+              }
+              width="100%"
+              height="100%"
+              style={{ border: 0, minHeight: "320px", display: "block" }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
           </div>
         </div>
 
-        {/* CTA with scroll-driven 3D entrance */}
-        <div className="perspective-container">
-          <motion.div
-            style={{ scale: ctaScale, opacity: ctaOpacity, rotateX: ctaRotateX }}
-            className="mt-20 md:mt-28 mb-20 text-center"
-          >
-            <RevealText>
-              <p className="text-5xl md:text-7xl lg:text-8xl font-black uppercase text-white/40 leading-[0.95]">
-                WIR SEHEN UNS
-              </p>
-            </RevealText>
-            <RevealText delay={0.12}>
-              <p className="text-5xl md:text-7xl lg:text-8xl font-black uppercase text-white leading-[0.95] mt-2">
-                AM WOCHENENDE.
-              </p>
-            </RevealText>
-          </motion.div>
-        </div>
-
-        <motion.div
-          whileInView={{ scaleX: 1 }}
-          initial={{ scaleX: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 2, ease }}
-          className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent origin-center mb-8"
-        />
+        <div className="mt-12 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[8px] uppercase tracking-[0.4em] text-white/10 font-semibold pt-6">
-          <p>© 2025 Brackwasser Design Café</p>
+          <p>© 2026 Brackwasser Design Café</p>
           <p>Impressum / Datenschutz</p>
         </div>
       </div>
@@ -910,20 +1053,76 @@ const Footer = () => {
 };
 
 /* ─── PAGE ─── */
-const Index = () => (
-  <div className="bg-background text-foreground antialiased font-body">
-    <Nav />
-    <Hero />
-    <MarqueeTransition />
-    <About />
-    <MarqueeTransition />
-    <Menu />
-    <MarqueeTransition bg="surface-navy" />
-    <Gallery />
-    <MarqueeTransition />
-    <Merch />
-    <Footer />
-  </div>
-);
+const Index = () => {
+  const [data, setData] = useState<any>(null);
+  const [gallery, setGallery] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [merch, setMerch] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: settingsData } = await supabase
+        .from("site_settings")
+        .select("*")
+        .single();
+
+      setData(settingsData);
+
+      const { data: galleryData } = await supabase
+        .from("gallery")
+        .select("*");
+
+      setGallery(galleryData || []);
+
+      const { data: menuData } = await supabase
+        .from("menu_items")
+        .select("*");
+
+      setMenuItems(menuData || []);
+
+      const { data: merchData } = await supabase
+        .from("merch_items")
+        .select("*");
+
+      setMerch(merchData || []);
+    };
+
+    fetchData();
+  }, []);
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-white">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-background text-foreground antialiased font-body">
+      <Nav />
+
+      <Hero
+        heroTitle={data.hero_title}
+        heroSubtitle={data.hero_subtitle}
+        heroButtonText={data.hero_button_text}
+        heroVideoUrl={data.hero_video_url}
+        heroImageUrl={data.hero_image_url}
+        heroMode={data.hero_mode}
+      />
+
+      <MarqueeTransition />
+      <About siteSettings={data} />
+      <MarqueeTransition />
+      <Menu items={menuItems} />
+      <MarqueeTransition bg="surface-navy" />
+      <Gallery gallery={gallery} />
+      <MarqueeTransition />
+      <Merch items={merch} siteSettings={data} />
+      <Footer siteSettings={data} />
+      <MusicPlayer musicUrl={data.music_url} />
+    </div>
+  );
+};
 
 export default Index;
